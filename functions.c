@@ -1,11 +1,12 @@
 #include "functions.h"
 
-// ---------------- STACK IMPLEMENTATION ----------------
+/* ---------------- STACK ---------------- */
 void init_stack(Stack* s) { s->top = NULL; }
 int is_stack_empty(Stack* s) { return s->top == NULL; }
 
 void push(Stack* s, Product p) {
     StackNode* newNode = (StackNode*)malloc(sizeof(StackNode));
+    if (!newNode) { perror("malloc"); return; }
     newNode->data = p;
     newNode->next = s->top;
     s->top = newNode;
@@ -21,31 +22,48 @@ Product pop(Stack* s) {
     return p;
 }
 
-// ---------------- PRODUCT MANAGEMENT ----------------
+/* ---------------- PRODUCT MANAGEMENT ---------------- */
 void init_products(Product products[], int *pcount) { *pcount = 0; }
 
 int add_product(Product products[], int *pcount, const char *id, int qty, Stack* stack) {
-    if (*pcount >= MAX_PRODUCTS) return 0;
+    if (!id) return 0;
+    if (qty < 0) {
+        printf("Cannot add product: quantity cannot be negative\n");
+        return 0;
+    }
+    if (qty > CAPACITY) {
+        printf("Cannot add product: quantity exceeds maximum limit (%d)\n", CAPACITY);
+        return 0;
+    }
     for (int i = 0; i < *pcount; ++i) {
         if (strcmp(products[i].id, id) == 0) {
             products[i].quantity = qty;
-            push(stack, products[i]);
+            if (stack) push(stack, products[i]);
             return 1;
         }
     }
-    strcpy(products[*pcount].id, id);
+
+    if (*pcount >= MAX_PRODUCTS) {
+        printf("Cannot add product: maximum product count reached\n");
+        return 0;
+    }
+
+    /* Add new product */
+    strncpy(products[*pcount].id, id, ID_LEN - 1);
+    products[*pcount].id[ID_LEN-1] = '\0';
     products[*pcount].quantity = qty;
-    push(stack, products[*pcount]);
+    if (stack) push(stack, products[*pcount]);
     (*pcount)++;
+
     return 1;
 }
 
 int remove_product(Product products[], int *pcount, const char *id, Stack* stack) {
+    if (!id) return 0;
     for (int i = 0; i < *pcount; ++i) {
         if (strcmp(products[i].id, id) == 0) {
-            push(stack, products[i]);
-            for (int j = i; j < (*pcount) - 1; ++j)
-                products[j] = products[j + 1];
+            if (stack) push(stack, products[i]);
+            for (int j = i; j < (*pcount) - 1; j++) products[j] = products[j+1];
             (*pcount)--;
             return 1;
         }
@@ -54,31 +72,40 @@ int remove_product(Product products[], int *pcount, const char *id, Stack* stack
 }
 
 void display_inventory(Product products[], int pcount) {
-    printf("\nCurrent Inventory:\n-----------------------------\n");
-    printf("%-10s | %-10s\n", "ID", "Quantity");
-    printf("-----------------------------\n");
-    for (int i = 0; i < pcount; ++i)
-        printf("%-10s | %-10d\n", products[i].id, products[i].quantity);
-    printf("-----------------------------\n");
+    printf("\nCurrent Inventory:\n----------------------------------------------\n");
+    printf("%-16s | %-10s | %-8s\n", "ID", "Quantity", "Capacity");
+    printf("----------------------------------------------\n");
+    for (int i = 0; i < pcount; ++i) {
+        printf("%-16s | %-10d | %-8d\n", products[i].id, products[i].quantity, CAPACITY);
+    }
+    printf("----------------------------------------------\n");
+}
+
+void display_remaining_space(Product products[], int pcount) {
+    printf("\nRemaining Space (per product):\n----------------------------------------------\n");
+    printf("%-16s | %-10s | %-10s\n", "ID", "Quantity", "Remaining");
+    printf("----------------------------------------------\n");
+    for (int i = 0; i < pcount; ++i) {
+        int remaining = CAPACITY - products[i].quantity;
+        if (remaining < 0) remaining = 0;
+        printf("%-16s | %-10d | %-10d\n", products[i].id, products[i].quantity, remaining);
+    }
+    printf("----------------------------------------------\n");
 }
 
 Product* find_product(Product products[], int pcount, const char *id) {
-    for (int i = 0; i < pcount; ++i)
-        if (strcmp(products[i].id, id) == 0) return &products[i];
+    if (!id) return NULL;
+    for (int i = 0; i < pcount; ++i) if (strcmp(products[i].id, id) == 0) return &products[i];
     return NULL;
-}
-
-int total_stock(Product products[], int pcount) {
-    int total = 0;
-    for (int i = 0; i < pcount; ++i) total += products[i].quantity;
-    return total;
 }
 
 int count_products(Product products[], int pcount) { return pcount; }
 
-// ---------------- GRAPH ----------------
+/* ---------------- GRAPH ---------------- */
 void add_edge(Graph *g, int u, int v, int w) {
+    if (!g) return;
     AdjNode* newNode = (AdjNode*)malloc(sizeof(AdjNode));
+    if (!newNode) { perror("malloc"); return; }
     newNode->dest = v;
     newNode->weight = w;
     newNode->next = g->heads[u];
@@ -86,15 +113,18 @@ void add_edge(Graph *g, int u, int v, int w) {
 }
 
 void init_sample_graph(Graph *g) {
+    if (!g) return;
     g->n = 4;
     for (int i = 0; i < g->n; ++i) g->heads[i] = NULL;
 
-    strcpy(g->names[0], "Warehouse");
-    strcpy(g->names[1], "Supplier_A");
-    strcpy(g->names[2], "Supplier_B");
-    strcpy(g->names[3], "Supplier_C");
+    strncpy(g->names[0], "Warehouse", sizeof(g->names[0]) - 1);
+    strncpy(g->names[1], "Supplier_A", sizeof(g->names[1]) - 1);
+    strncpy(g->names[2], "Supplier_B", sizeof(g->names[2]) - 1);
+    strncpy(g->names[3], "Supplier_C", sizeof(g->names[3]) - 1);
 
-    g->suppliers[0] = 1; g->suppliers[1] = 2; g->suppliers[2] = 3;
+    g->suppliers[0] = 1;
+    g->suppliers[1] = 2;
+    g->suppliers[2] = 3;
     g->supplier_count = 3;
 
     add_edge(g, 0, 1, 10); add_edge(g, 1, 0, 10);
@@ -106,6 +136,7 @@ void init_sample_graph(Graph *g) {
 }
 
 void display_routes(const Graph *g) {
+    if (!g) return;
     printf("\nCurrent Supply Routes (Adjacency List):\n");
     for (int i = 0; i < g->n; ++i) {
         printf("%d (%s): ", i, g->names[i]);
@@ -119,6 +150,7 @@ void display_routes(const Graph *g) {
 }
 
 void display_suppliers_and_connections(const Graph *g) {
+    if (!g) return;
     printf("\nSuppliers and Their Connections:\n");
     for (int i = 1; i < g->n; ++i) {
         printf("%s (%d): ", g->names[i], i);
@@ -131,14 +163,16 @@ void display_suppliers_and_connections(const Graph *g) {
     }
 }
 
-int count_suppliers(const Graph *g) { return g->supplier_count; }
+int count_suppliers(const Graph *g) { if (!g) return 0; return g->supplier_count; }
 
-// ---------------- PRIORITY QUEUE (Linked List) ----------------
-void init_pq(PriorityQueue* pq) { pq->front = NULL; }
-int is_pq_empty(PriorityQueue* pq) { return pq->front == NULL; }
+/* ---------------- PRIORITY QUEUE ---------------- */
+void init_pq(PriorityQueue* pq) { if (pq) pq->front = NULL; }
+int is_pq_empty(PriorityQueue* pq) { return (pq == NULL) || (pq->front == NULL); }
 
 void push_pq(PriorityQueue* pq, int vertex, int distance) {
+    if (!pq) return;
     PQNode* newNode = (PQNode*)malloc(sizeof(PQNode));
+    if (!newNode) { perror("malloc"); return; }
     newNode->vertex = vertex;
     newNode->distance = distance;
     newNode->next = NULL;
@@ -148,28 +182,34 @@ void push_pq(PriorityQueue* pq, int vertex, int distance) {
         pq->front = newNode;
     } else {
         PQNode* temp = pq->front;
-        while (temp->next && temp->next->distance <= distance)
-            temp = temp->next;
+        while (temp->next && temp->next->distance <= distance) temp = temp->next;
         newNode->next = temp->next;
         temp->next = newNode;
     }
 }
 
 PQNode pop_pq(PriorityQueue* pq) {
-    PQNode node = {-1, INT_MAX, NULL};
-    if (is_pq_empty(pq)) return node;
+    PQNode out = {-1, INT_MAX, NULL};
+    if (!pq || !pq->front) return out;
     PQNode* temp = pq->front;
-    node.vertex = temp->vertex;
-    node.distance = temp->distance;
+    out.vertex = temp->vertex;
+    out.distance = temp->distance;
     pq->front = temp->next;
     free(temp);
-    return node;
+    return out;
 }
 
-// ---------------- DIJKSTRA ----------------
+/* ---------------- DIJKSTRA ---------------- */
 int dijkstra(const Graph *g, int src, int dest, int dist_out[MAX_NODES], int parent[MAX_NODES]) {
-    int n = g->n, dist[MAX_NODES], visited[MAX_NODES];
-    for (int i = 0; i < n; ++i) { dist[i] = INT_MAX/2; visited[i] = 0; parent[i] = -1; }
+    if (!g) return 0;
+    int n = g->n;
+    int dist[MAX_NODES];
+    int visited[MAX_NODES];
+    for (int i = 0; i < n; ++i) {
+        dist[i] = INT_MAX/2;
+        visited[i] = 0;
+        parent[i] = -1;
+    }
     dist[src] = 0;
 
     PriorityQueue pq; init_pq(&pq);
@@ -177,25 +217,30 @@ int dijkstra(const Graph *g, int src, int dest, int dist_out[MAX_NODES], int par
 
     while (!is_pq_empty(&pq)) {
         PQNode u = pop_pq(&pq);
-        if (visited[u.vertex]) continue;
-        visited[u.vertex] = 1;
+        int uvertex = u.vertex;
+        if (uvertex < 0 || uvertex >= n) continue;
+        if (visited[uvertex]) continue;
+        visited[uvertex] = 1;
 
-        AdjNode* cur = g->heads[u.vertex];
+        AdjNode* cur = g->heads[uvertex];
         while (cur) {
-            int v = cur->dest, w = cur->weight;
-            if (!visited[v] && dist[u.vertex] + w < dist[v]) {
-                dist[v] = dist[u.vertex] + w;
-                parent[v] = u.vertex;
+            int v = cur->dest;
+            int w = cur->weight;
+            if (!visited[v] && dist[uvertex] + w < dist[v]) {
+                dist[v] = dist[uvertex] + w;
+                parent[v] = uvertex;
                 push_pq(&pq, v, dist[v]);
             }
             cur = cur->next;
         }
     }
+
     for (int i = 0; i < n; ++i) dist_out[i] = dist[i];
     return dist[dest] < INT_MAX/2;
 }
 
 int find_nearest_supplier(const Graph *g, int src_node) {
+    if (!g) return -1;
     int dist[MAX_NODES], parent[MAX_NODES];
     int minDist = INT_MAX, nearest = -1;
     for (int i = 0; i < g->supplier_count; ++i) {
@@ -207,7 +252,7 @@ int find_nearest_supplier(const Graph *g, int src_node) {
     return nearest;
 }
 
-// ---------------- AUTO REFILL ----------------
+/* ---------------- AUTO REFILL ---------------- */
 void auto_refill(Product products[], int pcount, Graph *g, int threshold, int reorder_qty) {
     printf("\nAuto-refill check: threshold=%d, reorder_qty=%d\n", threshold, reorder_qty);
     for (int i = 0; i < pcount; ++i) {
@@ -215,16 +260,24 @@ void auto_refill(Product products[], int pcount, Graph *g, int threshold, int re
             printf("Product %s: qty=%d < %d -> ", products[i].id, products[i].quantity, threshold);
             int nearest = find_nearest_supplier(g, 0);
             if (nearest != -1) {
-                printf("nearest supplier: %s (node %d). Reordering %d units...\n",
-                       g->names[nearest], nearest, reorder_qty);
-                products[i].quantity += reorder_qty;
-                printf("Product %s new qty=%d\n", products[i].id, products[i].quantity);
+                printf("nearest supplier: %s (node %d). ", g->names[nearest], nearest);
+                int needed = reorder_qty;
+                if (products[i].quantity + needed > CAPACITY) needed = CAPACITY - products[i].quantity;
+                if (needed <= 0) {
+                    printf("Already at or above capacity. No reorder needed.\n");
+                } else {
+                    printf("Reordering %d units...\n", needed);
+                    products[i].quantity += needed;
+                    printf("Product %s new qty=%d\n", products[i].id, products[i].quantity);
+                }
             } else printf("no supplier reachable!\n");
         }
     }
 }
 
+/* ---------------- FREE GRAPH ---------------- */
 void free_graph(Graph *g) {
+    if (!g) return;
     for (int i = 0; i < g->n; ++i) {
         AdjNode* cur = g->heads[i];
         while (cur) {

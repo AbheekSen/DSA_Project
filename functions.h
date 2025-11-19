@@ -9,7 +9,9 @@
 #define MAX_PRODUCTS 100
 #define MAX_NODES 10
 #define MAX_SUPPLIERS 5
-#define ID_LEN 10
+#define ID_LEN 16     
+#define CAPACITY 1000 
+
 
 typedef struct {
     char id[ID_LEN];
@@ -65,19 +67,17 @@ int is_pq_empty(PriorityQueue* pq);
 void push_pq(PriorityQueue* pq, int vertex, int distance);
 PQNode pop_pq(PriorityQueue* pq);
 
-// ---------------- PRODUCT MANAGEMENT ----------------
 void init_products(Product products[], int *pcount);
 int add_product(Product products[], int *pcount, const char *id, int qty, Stack* stack);
 int remove_product(Product products[], int *pcount, const char *id, Stack* stack);
 void display_inventory(Product products[], int pcount);
+void display_remaining_space(Product products[], int pcount);
 Product* find_product(Product products[], int pcount, const char *id);
-int total_stock(Product products[], int pcount);
 int count_products(Product products[], int pcount);
 
-// ---------------- ALGORITHMS ----------------
 int dijkstra(const Graph *g, int src, int dest, int dist_out[MAX_NODES], int parent[MAX_NODES]);
 int find_nearest_supplier(const Graph *g, int src_node);
 void auto_refill(Product products[], int pcount, Graph *g, int threshold, int reorder_qty);
 void free_graph(Graph *g);
 
-#endif
+#endif 
